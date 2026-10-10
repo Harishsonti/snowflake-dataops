@@ -1,1 +1,13 @@
+config-version: 2
 
+schemachange:
+  root-folder: ./migrations
+  change-history-table: DATAOPS_DB.DATAOPS_DEMO.CHANGE_HISTORY
+  create-change-history-table: true
+  log-level: INFO
+
+snowflake:
+  role: ACCOUNTADMIN
+  warehouse: DATAOPS_WH
+  database: DATAOPS_DB
+  schema: DATAOPS_DEMO
