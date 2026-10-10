@@ -7,7 +7,6 @@ schemachange:
   log-level: INFO
 
 snowflake:
-  role: ACCOUNTADMIN
   warehouse: DATAOPS_WH
   database: DATAOPS_DB
   schema: DATAOPS_DEMO
