@@ -1,17 +1,18 @@
 # Snowflake DataOps: Versioned SQL Migrations & CI/CD
 
-A portfolio project demonstrating version-controlled Snowflake schema changes, automated validation with GitHub Actions, and controlled deployment using **schemachange**.
+A working portfolio project demonstrating version-controlled Snowflake schema changes, automated validation with GitHub Actions, and controlled deployments using **schemachange**.
 
-## Project status
+## Verified project status
 
-- [x] Versioned SQL migration scripts
-- [x] Automated migration-file checks on pushes and pull requests
+- [x] Versioned SQL migration scripts for schema, tables, and view
+- [x] Automated migration-file tests on pushes and pull requests
 - [x] Snowflake connection check and dry-run preview
-- [x] Manual deployment workflow with an explicit confirmation gate
-- [ ] First live deployment and migration-history verification
-- [ ] Least-privilege deployment role and final evidence screenshots
-
-> A successful dry run validates connectivity and previews the scripts. It does **not** execute SQL or prove that a live deployment has completed.
+- [x] Manual live deployment workflow with an explicit confirmation gate
+- [x] First live deployment completed successfully
+- [x] Change history records versions `1.0.0`, `1.1.0`, and `1.2.0` as `Success`
+- [x] `ORDER_SUMMARY` queried successfully and returned customer-level totals
+- [ ] Switch from the current administrative role to a dedicated least-privilege deployment role
+- [ ] Add sanitized portfolio evidence screenshots
 
 ## Architecture
 
@@ -46,7 +47,9 @@ schemachange-config.yml
 | `1.1.0` | Create `CUSTOMERS` and `ORDERS` tables if they do not exist |
 | `1.2.0` | Create or replace the `ORDER_SUMMARY` view |
 
-Migration names follow `V<major>.<minor>.<patch>__<description>.sql`. Treat a version that has been deployed to a shared environment as immutable; add a new version for later changes instead of editing an applied migration.
+Migration names follow `V<major>.<minor>.<patch>__<description>.sql`. Tests check naming, semantic-version ordering, duplicate versions, required objects, non-empty files, and common hard-coded secret assignment patterns. These are static checks, not a full SQL parser or comprehensive secret scanner.
+
+Treat a version that has been deployed to a shared environment as immutable; add a new version for later changes instead of editing an applied migration.
 
 ## GitHub Actions configuration
 
@@ -58,7 +61,7 @@ Create these **repository Actions secrets** (never commit credentials):
 
 The workflows target warehouse `DATAOPS_WH`, database `DATAOPS_DB`, and schema `DATAOPS_DEMO`. Adjust the workflow and `schemachange-config.yml` if your environment uses different names.
 
-For live deployment, configure a GitHub Actions environment named `snowflake-demo` under **Settings → Environments**. Add required reviewers/protection rules where available. For production, use a dedicated least-privilege deployment identity, not `ACCOUNTADMIN`.
+For live deployment, configure a GitHub Actions environment named `snowflake-demo` under **Settings → Environments**. Add required reviewers/protection rules where available. A manual confirmation input is an operational guard, not a substitute for permissions controls.
 
 ### 1. Run validation
 
@@ -75,13 +78,11 @@ Open **Actions → Snowflake Migration Check → Run workflow** on `main`. Confi
 3. Type exactly `DEPLOY_TO_DATAOPS_DEMO` into the `confirmation` input.
 4. Review the run logs.
 
-This workflow executes SQL against the configured Snowflake account. Do not run it against a shared or production account without approval. The confirmation gate is an operational guard, not a replacement for least privilege or environment approval.
+This workflow executes SQL against the configured Snowflake account. Do not run it against a shared or production account without approval. The first live deployment has been completed and verified in the demo environment.
 
-The first deployment is expected to create `DATAOPS_DB.DATAOPS_DEMO.CHANGE_HISTORY` and process the three versioned migration files. The schema and table migrations use `IF NOT EXISTS`; the view migration uses `CREATE OR REPLACE VIEW`. Verify the view definition and target environment before running the deployment.
+## Verify the deployment
 
-## Verify a live deployment
-
-After the deployment succeeds, run these checks in a Snowflake worksheet:
+Run these checks in a Snowflake worksheet:
 
 ```sql
 SELECT *
@@ -95,7 +96,7 @@ SELECT *
 FROM DATAOPS_DB.DATAOPS_DEMO.ORDER_SUMMARY;
 ```
 
-Confirm versions `1.0.0`, `1.1.0`, and `1.2.0` appear in migration history, the expected objects exist, and the view returns the expected aggregation. If schemachange reports an already-applied migration or a state mismatch, inspect the migration history and object state rather than inserting history rows manually.
+The initial deployment recorded versions `1.0.0`, `1.1.0`, and `1.2.0` with status `Success`. The `ORDER_SUMMARY` view returned customer-level order counts and amounts.
 
 ## Run tests locally
 
@@ -106,15 +107,18 @@ python -m pip install -r requirements.txt
 python -m pytest -v
 ```
 
-## Security
+## Security and operational hardening
 
 - Store credentials only in GitHub Actions secrets.
 - Never print secrets or commit local environment files.
-- Use a dedicated deployment identity with only the permissions required for the demo schema objects and migration-history table.
-- Keep live deployment manual and protected.
+- The first deployment used the account's current role. Before treating this as production-style CI/CD, create and test a dedicated least-privilege deployment role and explicitly configure the workflows to use it.
+- Grant only the required warehouse, database, schema, object-creation, and migration-history permissions.
+- Keep live deployment manual and protect the `snowflake-demo` environment where the repository plan supports approvals.
+- The static secret checks are a guardrail, not a guarantee that every secret pattern will be detected.
 
-## Known limitations / next steps
+## Next steps
 
-- The first live deployment has not yet been verified.
-- Add SQL linting and migration dependency checks if the project grows.
-- Capture sanitized evidence of passing CI, dry-run, successful deployment, and the migration-history table.
+1. Configure and validate a least-privilege deployment identity.
+2. Add concurrency controls to prevent overlapping deployment runs.
+3. Capture sanitized evidence of passing CI, dry-run, successful deployment, and the change-history table.
+4. Add a new, safe migration to demonstrate the end-to-end change lifecycle without modifying already-applied migration files.
