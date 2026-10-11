@@ -8,10 +8,11 @@ A working portfolio project demonstrating version-controlled Snowflake schema ch
 - [x] Automated migration-file tests on pushes and pull requests
 - [x] Snowflake connection check and dry-run preview
 - [x] Manual live deployment workflow with an explicit confirmation gate
+- [x] Deployment workflow serializes runs to avoid overlapping migration executions
 - [x] First live deployment completed successfully
 - [x] Change history records versions `1.0.0`, `1.1.0`, and `1.2.0` as `Success`
 - [x] `ORDER_SUMMARY` queried successfully and returned customer-level totals
-- [ ] Switch from the current administrative role to a dedicated least-privilege deployment role
+- [ ] Apply and test a dedicated least-privilege deployment role
 - [ ] Add sanitized portfolio evidence screenshots
 
 ## Architecture
@@ -19,7 +20,7 @@ A working portfolio project demonstrating version-controlled Snowflake schema ch
 ```text
 Developer change -> Pull request / push -> pytest migration checks
                                       -> Manual Snowflake connection + dry run
-                                      -> Confirmed manual deployment
+                                      -> Confirmed, serialized manual deployment
                                       -> Snowflake objects + change history
 ```
 
@@ -29,7 +30,9 @@ Developer change -> Pull request / push -> pytest migration checks
 .github/workflows/
   validate.yml             # Tests on push / pull request
   snowflake-check.yml      # Manual connection check + dry run
-  snowflake-deploy.yml     # Manually confirmed live deployment
+  snowflake-deploy.yml     # Confirmed deployment; serializes runs
+docs/
+  least-privilege-setup.sql # Reviewed starter SQL for deployment role grants
 migrations/
   V1.0.0__create_schema.sql
   V1.1.0__create_tables.sql
@@ -61,7 +64,7 @@ Create these **repository Actions secrets** (never commit credentials):
 
 The workflows target warehouse `DATAOPS_WH`, database `DATAOPS_DB`, and schema `DATAOPS_DEMO`. Adjust the workflow and `schemachange-config.yml` if your environment uses different names.
 
-For live deployment, configure a GitHub Actions environment named `snowflake-demo` under **Settings → Environments**. Add required reviewers/protection rules where available. A manual confirmation input is an operational guard, not a substitute for permissions controls.
+For live deployment, configure a GitHub Actions environment named `snowflake-demo` under **Settings → Environments**. Add required reviewers/protection rules where available. The deployment workflow requires an explicit confirmation phrase and serializes deployment runs. These are safeguards, not substitutes for correct permissions.
 
 ### 1. Run validation
 
@@ -107,18 +110,24 @@ python -m pip install -r requirements.txt
 python -m pytest -v
 ```
 
+## Least-privilege role setup
+
+The starter SQL in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup.sql) creates `DATAOPS_DEPLOY_ROLE`, grants access scoped to the demo warehouse/database/schema and migration-history table, and grants the role to the current demo user for testing.
+
+**Review the script before executing it.** Run it manually in a Snowflake worksheet as an authorized administrator. It does not alter GitHub secrets or automatically switch the workflows to the new role. After the grants are applied, configure and test `SNOWFLAKE_ROLE=DATAOPS_DEPLOY_ROLE` in the workflows before treating the role migration as complete. For a production implementation, use a dedicated service user instead of a human account.
+
 ## Security and operational hardening
 
 - Store credentials only in GitHub Actions secrets.
 - Never print secrets or commit local environment files.
-- The first deployment used the account's current role. Before treating this as production-style CI/CD, create and test a dedicated least-privilege deployment role and explicitly configure the workflows to use it.
+- The first deployment used the account's current role; the least-privilege role is a proposed next step, not yet verified.
 - Grant only the required warehouse, database, schema, object-creation, and migration-history permissions.
 - Keep live deployment manual and protect the `snowflake-demo` environment where the repository plan supports approvals.
-- The static secret checks are a guardrail, not a guarantee that every secret pattern will be detected.
+- Static secret checks are guardrails, not a guarantee that every secret pattern will be detected.
 
 ## Next steps
 
-1. Configure and validate a least-privilege deployment identity.
-2. Add concurrency controls to prevent overlapping deployment runs.
+1. Review and execute the role setup SQL; verify grants.
+2. Configure the workflow to use the new role and test with a dry run before any live deploy.
 3. Capture sanitized evidence of passing CI, dry-run, successful deployment, and the change-history table.
 4. Add a new, safe migration to demonstrate the end-to-end change lifecycle without modifying already-applied migration files.
