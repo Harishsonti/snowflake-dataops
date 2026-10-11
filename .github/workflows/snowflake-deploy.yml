@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read
 
+# Prevent two migration runs from changing the same Snowflake environment at once.
+concurrency:
+  group: snowflake-dataops-demo-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: ${{ inputs.confirmation == 'DEPLOY_TO_DATAOPS_DEMO' }}
