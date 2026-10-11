@@ -12,7 +12,7 @@ A working portfolio project demonstrating version-controlled Snowflake schema ch
 - [x] First live deployment completed successfully
 - [x] Change history records versions `1.0.0`, `1.1.0`, and `1.2.0` as `Success`
 - [x] `ORDER_SUMMARY` queried successfully and returned customer-level totals
-- [ ] Apply and test a dedicated least-privilege deployment role
+- [x] Configure and verify GitHub Actions with the dedicated `DATAOPS_DEPLOY_ROLE`
 - [ ] Add sanitized portfolio evidence screenshots
 
 ## Architecture
@@ -32,7 +32,7 @@ Developer change -> Pull request / push -> pytest migration checks
   snowflake-check.yml      # Manual connection check + dry run
   snowflake-deploy.yml     # Confirmed deployment; serializes runs
 docs/
-  least-privilege-setup.sql # Reviewed starter SQL for deployment role grants
+  least-privilege-setup.sql # Starter SQL for deployment role grants
 migrations/
   V1.0.0__create_schema.sql
   V1.1.0__create_tables.sql
@@ -81,7 +81,7 @@ Open **Actions → Snowflake Migration Check → Run workflow** on `main`. Confi
 3. Type exactly `DEPLOY_TO_DATAOPS_DEMO` into the `confirmation` input.
 4. Review the run logs.
 
-This workflow executes SQL against the configured Snowflake account. Do not run it against a shared or production account without approval. The first live deployment has been completed and verified in the demo environment.
+This workflow executes SQL against the configured Snowflake account. Do not run it against a shared or production account without approval. The first live deployment and a subsequent deployment using `DATAOPS_DEPLOY_ROLE` have completed successfully in the demo environment.
 
 ## Verify the deployment
 
@@ -112,22 +112,19 @@ python -m pytest -v
 
 ## Least-privilege role setup
 
-The starter SQL in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup.sql) creates `DATAOPS_DEPLOY_ROLE`, grants access scoped to the demo warehouse/database/schema and migration-history table, and grants the role to the current demo user for testing.
-
-**Review the script before executing it.** Run it manually in a Snowflake worksheet as an authorized administrator. It does not alter GitHub secrets or automatically switch the workflows to the new role. After the grants are applied, configure and test `SNOWFLAKE_ROLE=DATAOPS_DEPLOY_ROLE` in the workflows before treating the role migration as complete. For a production implementation, use a dedicated service user instead of a human account.
+The starter SQL in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup.sql) documents the role setup. The role was created and its grants were reviewed in Snowflake, including `SELECT` on `ORDERS`. Both GitHub Actions workflows now set `SNOWFLAKE_ROLE=DATAOPS_DEPLOY_ROLE`. The migration-check workflow (connection verification plus dry-run) and the confirmed deployment workflow have both completed successfully using that role. For a production implementation, use a dedicated service user instead of a human account.
 
 ## Security and operational hardening
 
 - Store credentials only in GitHub Actions secrets.
 - Never print secrets or commit local environment files.
-- The first deployment used the account's current role; the least-privilege role is a proposed next step, not yet verified.
+- The first deployment used the account's original role; subsequent check and deployment workflow runs verified the dedicated `DATAOPS_DEPLOY_ROLE`.
 - Grant only the required warehouse, database, schema, object-creation, and migration-history permissions.
 - Keep live deployment manual and protect the `snowflake-demo` environment where the repository plan supports approvals.
 - Static secret checks are guardrails, not a guarantee that every secret pattern will be detected.
 
 ## Next steps
 
-1. Review and execute the role setup SQL; verify grants.
-2. Configure the workflow to use the new role and test with a dry run before any live deploy.
-3. Capture sanitized evidence of passing CI, dry-run, successful deployment, and the change-history table.
-4. Add a new, safe migration to demonstrate the end-to-end change lifecycle without modifying already-applied migration files.
+1. Capture sanitized evidence of passing CI, the dry-run, successful deployment, and the change-history table.
+2. Add a new, safe migration to demonstrate the end-to-end change lifecycle without modifying already-applied migration files.
+3. Consider switching from a human Snowflake user to a dedicated service user for a more production-like setup.
