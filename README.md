@@ -11,7 +11,7 @@ A working portfolio project demonstrating version-controlled Snowflake schema ch
 - [x] Deployment workflow serializes runs to avoid overlapping migration executions
 - [x] First live deployment completed successfully
 - [x] Change history records versions `1.0.0`, `1.1.0`, and `1.2.0` as `Success`
-- [ ] Additive `1.3.0` customer-segmentation migration created; pending CI, dry-run, and live deployment verification
+- [x] Additive `1.3.0` customer-segmentation migration deployed and verified in Snowflake; user confirmed migration-history and workflow success
 - [x] `ORDER_SUMMARY` queried successfully and returned customer-level totals
 - [x] Configure and verify GitHub Actions with the dedicated `DATAOPS_DEPLOY_ROLE`
 - [ ] Add sanitized portfolio evidence screenshots
@@ -102,7 +102,7 @@ SELECT *
 FROM DATAOPS_DB.DATAOPS_DEMO.ORDER_SUMMARY;
 ```
 
-The initial deployment recorded versions `1.0.0`, `1.1.0`, and `1.2.0` with status `Success`. The `ORDER_SUMMARY` view returned customer-level order counts and amounts.
+The initial deployment recorded versions `1.0.0`, `1.1.0`, and `1.2.0` with status `Success`. The `ORDER_SUMMARY` view returned customer-level order counts and amounts. Migration `1.3.0` was subsequently deployed; the `CUSTOMERS` table description showed nullable `CUSTOMER_SEGMENT VARCHAR(30)`, and the migration-history and deployment-workflow success were confirmed.
 
 ## Run tests locally
 
@@ -129,5 +129,5 @@ The starter SQL in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup
 ## Next steps
 
 1. Capture sanitized evidence of passing CI, the dry-run, successful deployment, and the change-history table.
-2. Run the migration-check workflow to validate and preview migration `1.3.0`; then deploy it with explicit confirmation and verify the new column in Snowflake.
+2. Add sanitized evidence of the `1.3.0` migration and its successful deployment.
 3. Consider switching from a human Snowflake user to a dedicated service user for a more production-like setup.
