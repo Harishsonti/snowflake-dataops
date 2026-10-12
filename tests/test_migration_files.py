@@ -41,6 +41,7 @@ def test_expected_schema_objects_are_defined():
     assert "CREATE TABLE IF NOT EXISTS DATAOPS_DEMO.CUSTOMERS" in contents
     assert "CREATE TABLE IF NOT EXISTS DATAOPS_DEMO.ORDERS" in contents
     assert "CREATE OR REPLACE VIEW DATAOPS_DEMO.ORDER_SUMMARY" in contents
+    assert "ADD COLUMN IF NOT EXISTS CUSTOMER_SEGMENT VARCHAR(30)" in contents
 
 
 def test_migrations_do_not_contain_common_secret_assignments():
