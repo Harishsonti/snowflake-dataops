@@ -121,7 +121,3 @@ The role setup is documented in [`docs/least-privilege-setup.sql`](docs/least-pr
 
 The migration tests are basic static checks. They are useful guardrails, but they are not a SQL parser or a complete secret scanner. For a production setup, I'd use a dedicated service user, review the exact required grants, and protect deployments with the team's approval process.
 
-## Possible improvements
-
-- Add screenshots of the successful validation, dry run, deployment, and migration history, with account details and other sensitive information removed.
-- Use a dedicated service user for deployments instead of a human account.
