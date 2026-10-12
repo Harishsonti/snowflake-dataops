@@ -1,94 +1,101 @@
-# Snowflake DataOps: Versioned SQL Migrations & CI/CD
+# Snowflake DataOps
 
-A working portfolio project demonstrating version-controlled Snowflake schema changes, automated validation with GitHub Actions, and controlled deployments using **schemachange**.
+I built this project to practise a common data engineering task: changing a Snowflake database without relying on someone to run SQL by hand every time.
 
-## Verified project status
+The idea is simple. SQL changes live in versioned migration files, GitHub Actions checks those files, and a separate workflow lets me preview or apply the migrations to my Snowflake demo environment. I used **schemachange** to manage the migrations.
 
-- [x] Versioned SQL migration scripts for schema, tables, and view
-- [x] Automated migration-file tests on pushes and pull requests
-- [x] Snowflake connection check and dry-run preview
-- [x] Manual live deployment workflow with an explicit confirmation gate
-- [x] Deployment workflow serializes runs to avoid overlapping migration executions
-- [x] First live deployment completed successfully
-- [x] Change history records versions `1.0.0`, `1.1.0`, and `1.2.0` as `Success`
-- [x] Additive `1.3.0` customer-segmentation migration deployed and verified in Snowflake; user confirmed migration-history and workflow success
-- [x] `ORDER_SUMMARY` queried successfully and returned customer-level totals
-- [x] Configure and verify GitHub Actions with the dedicated `DATAOPS_DEPLOY_ROLE`
-- [ ] Add sanitized portfolio evidence screenshots
+## How it works
 
-## Architecture
+A change starts in GitHub. The validation workflow runs the migration-file tests on pushes and pull requests. When I need to check Snowflake connectivity or preview a deployment, I can run the migration-check workflow manually. Applying migrations is a separate manual step and requires a confirmation phrase.
 
-```text
-Developer change -> Pull request / push -> pytest migration checks
-                                      -> Manual Snowflake connection + dry run
-                                      -> Confirmed, serialized manual deployment
-                                      -> Snowflake objects + change history
+```mermaid
+flowchart TD
+    A[Update a SQL migration] --> B[Push or open pull request]
+    B --> C[GitHub Actions: pytest checks]
+    C --> D{Need to check Snowflake?}
+    D -->|Yes| E[Manual connection check and dry run]
+    D -->|No| F[Continue development]
+    E --> G{Ready to deploy?}
+    G -->|Yes| H[Manual deployment with confirmation]
+    G -->|No| F
+    H --> I[Snowflake objects and change history]
 ```
 
-## Repository layout
+The validation and connection-check workflows do not apply migrations. The deployment workflow does execute SQL against the configured Snowflake account, so it should only be run after checking the target environment and permissions.
+
+## What I implemented
+
+- Versioned SQL migrations for the demo schema, tables, view, and an additive customer column.
+- GitHub Actions tests for migration file naming, version ordering, duplicate versions, expected objects, empty files, and common hard-coded secret patterns.
+- A manual Snowflake connection check with a dry-run preview.
+- A manual deployment workflow with an explicit confirmation input and concurrency control to prevent overlapping runs.
+- A dedicated `DATAOPS_DEPLOY_ROLE` for the Snowflake check and deployment workflows.
+
+## Migration history
+
+| Version | Change |
+| --- | --- |
+| `1.0.0` | Create the `DATAOPS_DEMO` schema if it does not exist |
+| `1.1.0` | Create the `CUSTOMERS` and `ORDERS` tables |
+| `1.2.0` | Create or replace the `ORDER_SUMMARY` view |
+| `1.3.0` | Add a nullable `CUSTOMER_SEGMENT` column to `CUSTOMERS` |
+
+I deployed these migrations to a Snowflake demo environment. The migration history recorded versions `1.0.0`, `1.1.0`, and `1.2.0` as successful on the initial deployment. I later deployed `1.3.0` and checked that the new column existed. I also queried `ORDER_SUMMARY` to check the customer-level order totals.
+
+Migration files use this naming pattern:
+
+```text
+V<major>.<minor>.<patch>__<description>.sql
+```
+
+Once a migration has been applied to a shared environment, I leave that file unchanged and create a new version for the next database change.
+
+## Repository structure
 
 ```text
 .github/workflows/
-  validate.yml             # Tests on push / pull request
-  snowflake-check.yml      # Manual connection check + dry run
-  snowflake-deploy.yml     # Confirmed deployment; serializes runs
+  validate.yml
+  snowflake-check.yml
+  snowflake-deploy.yml
 docs/
-  least-privilege-setup.sql # Starter SQL for deployment role grants
+  least-privilege-setup.sql
 migrations/
   V1.0.0__create_schema.sql
   V1.1.0__create_tables.sql
   V1.2.0__create_views.sql
   V1.3.0__add_customer_segment.sql
-tests/test_migration_files.py
+tests/
+  test_migration_files.py
 requirements.txt
 schemachange-config.yml
 ```
 
-## Migrations
+## Running the checks locally
 
-| Version | Change |
-|---|---|
-| `1.0.0` | Create `DATAOPS_DEMO` schema if it does not exist |
-| `1.1.0` | Create `CUSTOMERS` and `ORDERS` tables if they do not exist |
-| `1.2.0` | Create or replace the `ORDER_SUMMARY` view |
-| `1.3.0` | Add nullable `CUSTOMER_SEGMENT` column to `CUSTOMERS` without changing existing rows |
+The CI workflow uses Python 3.12. Python 3.10 or newer is needed to run the project locally.
 
-Migration names follow `V<major>.<minor>.<patch>__<description>.sql`. Tests check naming, semantic-version ordering, duplicate versions, required objects, non-empty files, and common hard-coded secret assignment patterns. These are static checks, not a full SQL parser or comprehensive secret scanner.
+```bash
+python -m pip install -r requirements.txt
+python -m pytest -v
+```
 
-Treat a version that has been deployed to a shared environment as immutable; add a new version for later changes instead of editing an applied migration.
+## Connecting GitHub Actions to Snowflake
 
-## GitHub Actions configuration
+Add the following repository secrets in GitHub Settings. Do not put credentials in the repository.
 
-Create these **repository Actions secrets** (never commit credentials):
+- `SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_USER`
+- `SNOWFLAKE_PASSWORD`
 
-- `SNOWFLAKE_ACCOUNT` — Snowflake account identifier accepted by the Python connector
-- `SNOWFLAKE_USER` — Snowflake deployment user
-- `SNOWFLAKE_PASSWORD` — password for that user
+The workflows are configured for warehouse `DATAOPS_WH`, database `DATAOPS_DB`, and schema `DATAOPS_DEMO`. Update the workflow files and `schemachange-config.yml` if you use different names.
 
-The workflows target warehouse `DATAOPS_WH`, database `DATAOPS_DB`, and schema `DATAOPS_DEMO`. Adjust the workflow and `schemachange-config.yml` if your environment uses different names.
+For the deployment workflow, configure a GitHub Actions environment named `snowflake-demo`. The workflow expects the confirmation value `DEPLOY_TO_DATAOPS_DEMO`. Check the account, role, warehouse, database, schema, and credentials before running it. Environment protection rules or required reviewers can add another layer of control where available.
 
-For live deployment, configure a GitHub Actions environment named `snowflake-demo` under **Settings → Environments**. Add required reviewers/protection rules where available. The deployment workflow requires an explicit confirmation phrase and serializes deployment runs. These are safeguards, not substitutes for correct permissions.
+The connection-check workflow verifies access and previews the migrations; it does not apply them. The deployment workflow does apply SQL, so don't point it at a shared or production environment without the right approval.
 
-### 1. Run validation
+## Checking the result in Snowflake
 
-Push a change or open a pull request against `main`, then open **Actions → Validate SQL Migrations** and confirm pytest passes.
-
-### 2. Check connectivity and preview
-
-Open **Actions → Snowflake Migration Check → Run workflow** on `main`. Confirm connection verification and the dry-run preview succeed. This workflow does not apply migrations.
-
-### 3. Deploy migrations (executes SQL)
-
-1. Confirm the target account, role, warehouse, database, schema, and secrets.
-2. Open **Actions → Deploy Snowflake Migrations → Run workflow**.
-3. Type exactly `DEPLOY_TO_DATAOPS_DEMO` into the `confirmation` input.
-4. Review the run logs.
-
-This workflow executes SQL against the configured Snowflake account. Do not run it against a shared or production account without approval. The first live deployment and a subsequent deployment using `DATAOPS_DEPLOY_ROLE` have completed successfully in the demo environment.
-
-## Verify the deployment
-
-Run these checks in a Snowflake worksheet:
+After deployment, I used these queries to inspect migration history and confirm the objects were available:
 
 ```sql
 SELECT *
@@ -102,32 +109,19 @@ SELECT *
 FROM DATAOPS_DB.DATAOPS_DEMO.ORDER_SUMMARY;
 ```
 
-The initial deployment recorded versions `1.0.0`, `1.1.0`, and `1.2.0` with status `Success`. The `ORDER_SUMMARY` view returned customer-level order counts and amounts. Migration `1.3.0` was subsequently deployed; the `CUSTOMERS` table description showed nullable `CUSTOMER_SEGMENT VARCHAR(30)`, and the migration-history and deployment-workflow success were confirmed.
+The `1.3.0` change can also be checked with:
 
-## Run tests locally
-
-Requires Python 3.10+ (CI uses Python 3.12).
-
-```bash
-python -m pip install -r requirements.txt
-python -m pytest -v
+```sql
+DESC TABLE DATAOPS_DB.DATAOPS_DEMO.CUSTOMERS;
 ```
 
-## Least-privilege role setup
+## Permissions and security notes
 
-The starter SQL in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup.sql) documents the role setup. The role was created and its grants were reviewed in Snowflake, including `SELECT` on `ORDERS`. Both GitHub Actions workflows now set `SNOWFLAKE_ROLE=DATAOPS_DEPLOY_ROLE`. The migration-check workflow (connection verification plus dry-run) and the confirmed deployment workflow have both completed successfully using that role. For a production implementation, use a dedicated service user instead of a human account.
+The role setup is documented in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup.sql). I created and reviewed the grants for `DATAOPS_DEPLOY_ROLE`, including access to the migration history and the `ORDERS` table. Both the connection-check and deployment workflows have run using this role in the demo environment.
 
-## Security and operational hardening
+The migration tests are basic static checks. They are useful guardrails, but they are not a SQL parser or a complete secret scanner. For a production setup, I'd use a dedicated service user, review the exact required grants, and protect deployments with the team's approval process.
 
-- Store credentials only in GitHub Actions secrets.
-- Never print secrets or commit local environment files.
-- The first deployment used the account's original role; subsequent check and deployment workflow runs verified the dedicated `DATAOPS_DEPLOY_ROLE`.
-- Grant only the required warehouse, database, schema, object-creation, and migration-history permissions.
-- Keep live deployment manual and protect the `snowflake-demo` environment where the repository plan supports approvals.
-- Static secret checks are guardrails, not a guarantee that every secret pattern will be detected.
+## Possible improvements
 
-## Next steps
-
-1. Capture sanitized evidence of passing CI, the dry-run, successful deployment, and the change-history table.
-2. Add sanitized evidence of the `1.3.0` migration and its successful deployment.
-3. Consider switching from a human Snowflake user to a dedicated service user for a more production-like setup.
+- Add screenshots of the successful validation, dry run, deployment, and migration history, with account details and other sensitive information removed.
+- Use a dedicated service user for deployments instead of a human account.
