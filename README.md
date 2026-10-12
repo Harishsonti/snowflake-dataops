@@ -11,6 +11,7 @@ A working portfolio project demonstrating version-controlled Snowflake schema ch
 - [x] Deployment workflow serializes runs to avoid overlapping migration executions
 - [x] First live deployment completed successfully
 - [x] Change history records versions `1.0.0`, `1.1.0`, and `1.2.0` as `Success`
+- [ ] Additive `1.3.0` customer-segmentation migration created; pending CI, dry-run, and live deployment verification
 - [x] `ORDER_SUMMARY` queried successfully and returned customer-level totals
 - [x] Configure and verify GitHub Actions with the dedicated `DATAOPS_DEPLOY_ROLE`
 - [ ] Add sanitized portfolio evidence screenshots
@@ -37,6 +38,7 @@ migrations/
   V1.0.0__create_schema.sql
   V1.1.0__create_tables.sql
   V1.2.0__create_views.sql
+  V1.3.0__add_customer_segment.sql
 tests/test_migration_files.py
 requirements.txt
 schemachange-config.yml
@@ -49,6 +51,7 @@ schemachange-config.yml
 | `1.0.0` | Create `DATAOPS_DEMO` schema if it does not exist |
 | `1.1.0` | Create `CUSTOMERS` and `ORDERS` tables if they do not exist |
 | `1.2.0` | Create or replace the `ORDER_SUMMARY` view |
+| `1.3.0` | Add nullable `CUSTOMER_SEGMENT` column to `CUSTOMERS` without changing existing rows |
 
 Migration names follow `V<major>.<minor>.<patch>__<description>.sql`. Tests check naming, semantic-version ordering, duplicate versions, required objects, non-empty files, and common hard-coded secret assignment patterns. These are static checks, not a full SQL parser or comprehensive secret scanner.
 
@@ -126,5 +129,5 @@ The starter SQL in [`docs/least-privilege-setup.sql`](docs/least-privilege-setup
 ## Next steps
 
 1. Capture sanitized evidence of passing CI, the dry-run, successful deployment, and the change-history table.
-2. Add a new, safe migration to demonstrate the end-to-end change lifecycle without modifying already-applied migration files.
+2. Run the migration-check workflow to validate and preview migration `1.3.0`; then deploy it with explicit confirmation and verify the new column in Snowflake.
 3. Consider switching from a human Snowflake user to a dedicated service user for a more production-like setup.
